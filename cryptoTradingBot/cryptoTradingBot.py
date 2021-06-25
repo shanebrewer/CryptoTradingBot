@@ -1,12 +1,36 @@
+
 import cbpro
 import os
+import pandas as pd
+#import talib as ta
+import time
+import streamz
+from streamz import Stream
+from streamz.dataframe import DataFrame
+import holoviews as hv
+from holoviews import opts
+from holoviews.streams import Buffer
+from holoviews.plotting.links import RangeToolLink
+from cb_websocket import coinbaseWebSocketClient as cws
 
 class CryptoTradingBot:
     
-    def __init__(self, cb_pro_client):
-        self.client = cb_pro_client
+    def __init__(self):
+        self.client = cbpro.AuthenticatedClient(os.environ.get('COINBASE_SANDBOX_API_PUBLIC_KEY'), 
+                                            os.environ.get('COINBASE_SANDBOX_API_SECRET_KEY'), 
+                                            os.environ.get('COINBASE_SANDBOX_API_PASSPHRASE'), 
+                                            api_url="https://api-public.sandbox.pro.coinbase.com")
+        self.setupWebSockClient()
 
+
+    def setupWebSockClient(self):
+        self.ws_client = cws.coinbaseWebSocketClient()
+
+
+    def run(self):
+        self.ws_client.start()
     
+
     def trade(self, action, limitPrice, quantity):
         if action == 'buy':
             self.client.buy(price=limitPrice,
@@ -36,11 +60,14 @@ class CryptoTradingBot:
         tick = self.client.get_product_ticker(product_id='BTC-USD')
         return tick['bid']
 
-if __name__ == "__main__":
-    auth_client = cbpro.AuthenticatedClient(os.environ.get('COINBASE_SANDBOX_API_PUBLIC_KEY'), 
-                                            os.environ.get('COINBASE_SANDBOX_API_SECRET_KEY'), 
-                                            os.environ.get('COINBASE_SANDBOX_API_PASSPHRASE'), 
-                                            api_url="https://api-public.sandbox.pro.coinbase.com")
 
-    tradingSystem = CryptoTradingBot(auth_client)
-    print(tradingSystem.viewAccounts('BTC'))
+if __name__ == "__main__":
+    tradingSystem = CryptoTradingBot()
+    tradingSystem.run()
+
+    try: 
+        while True:
+            print("Message Count = ", "%i \n" % tradingSystem.ws_client.message_count)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        tradingSystem.ws_client.close()
